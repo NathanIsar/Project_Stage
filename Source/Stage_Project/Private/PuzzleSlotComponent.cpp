@@ -47,6 +47,13 @@ bool UPuzzleSlotComponent::TryPlaceDigit(ANumberGrab* Digit)
 	
 	if (Digit->GrabbedMaterial)
 		Digit->MeshComponent->SetMaterial(0, Digit->GrabbedMaterial);
+	
+	if (PlaceSound && SlotAudioComponent)
+	{
+		SlotAudioComponent->SetSound(PlaceSound);
+		SlotAudioComponent->Play();
+	}
+ 
  
 	OnSlotChanged.Broadcast(this);
 	return true;
@@ -66,6 +73,12 @@ void UPuzzleSlotComponent::EjectDigit()
  
 	PlacedDigit->bIsPlaced = false;
 	PlacedDigit = nullptr;
+	
+	if (EjectSound && SlotAudioComponent)
+	{
+		SlotAudioComponent->SetSound(EjectSound);
+		SlotAudioComponent->Play();
+	}
  
 	OnSlotChanged.Broadcast(this);
 }

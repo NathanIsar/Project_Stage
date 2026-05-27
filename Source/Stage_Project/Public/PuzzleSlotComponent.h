@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Components/SceneComponent.h"
 #include "NumberGrab.h"
+#include "Components/AudioComponent.h"
 #include "PuzzleSlotComponent.generated.h"
 
 
@@ -40,4 +41,16 @@ public:
 	
 	UPROPERTY(BlueprintAssignable, Category="Puzzle|Events")
 	FOnSlotChanged OnSlotChanged;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Puzzle|Sound")
+	USoundBase* PlaceSound = nullptr;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Puzzle|Sound")
+	USoundBase* EjectSound = nullptr;
+	
+protected:
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Puzzle|Sound")
+	UAudioComponent* SlotAudioComponent = nullptr;
+	
 };
