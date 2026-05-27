@@ -65,6 +65,9 @@ protected:
 private:
 	
 	void InitSlots();
+	
+	UPROPERTY()
+	UAudioComponent* SteleAudioComponent = nullptr;
  
 	UFUNCTION()
 	void HandleSlotChanged(UPuzzleSlotComponent* Slot);

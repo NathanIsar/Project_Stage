@@ -60,10 +60,19 @@ public:
 protected:
 	
 	virtual void BeginPlay() override;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Puzzle|Sound")
+	UAudioComponent* SlotAudioComponent = nullptr;
 
 public:	
 	UPROPERTY()
 	UCameraComponent* PlayerCamera = nullptr;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Puzzle|Sound")
+	USoundBase* GrabSound = nullptr;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Puzzle|Sound")
+	USoundBase* ReleaseSound = nullptr;
 
 	bool bWasSimulatingPhysics = false;
 	
@@ -73,7 +82,7 @@ public:
 	ECollisionResponse SavedPawnResponse = ECR_Block;
 private:
 	FTimerHandle HoverTimerHandle;
-    
+	
 	UFUNCTION()
 	void HoverTimerTick();
 };

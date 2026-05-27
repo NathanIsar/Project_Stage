@@ -1,5 +1,6 @@
 #include "PuzzleSlotComponent.h"
 #include "Components/PrimitiveComponent.h"
+#include "Kismet/GameplayStatics.h"
 
 
 UPuzzleSlotComponent::UPuzzleSlotComponent()
@@ -48,12 +49,17 @@ bool UPuzzleSlotComponent::TryPlaceDigit(ANumberGrab* Digit)
 	if (Digit->GrabbedMaterial)
 		Digit->MeshComponent->SetMaterial(0, Digit->GrabbedMaterial);
 	
-	if (PlaceSound && SlotAudioComponent)
+	//if (PlaceSound)
+		//UGameplayStatics::PlaySoundAtLocation(this, PlaceSound, GetComponentLocation());
+	
+	if (PlaceSound)
 	{
-		SlotAudioComponent->SetSound(PlaceSound);
-		SlotAudioComponent->Play();
-	}
+		if (SlotAudioComponent && SlotAudioComponent->IsPlaying())
+			SlotAudioComponent->Stop();
  
+		SlotAudioComponent = UGameplayStatics::SpawnSoundAtLocation(
+			this, PlaceSound, GetComponentLocation());
+	}
  
 	OnSlotChanged.Broadcast(this);
 	return true;
@@ -74,10 +80,16 @@ void UPuzzleSlotComponent::EjectDigit()
 	PlacedDigit->bIsPlaced = false;
 	PlacedDigit = nullptr;
 	
-	if (EjectSound && SlotAudioComponent)
+	//if (EjectSound)
+		//UGameplayStatics::PlaySoundAtLocation(this, EjectSound, GetComponentLocation());
+	
+	if (EjectSound)
 	{
-		SlotAudioComponent->SetSound(EjectSound);
-		SlotAudioComponent->Play();
+		if (SlotAudioComponent && SlotAudioComponent->IsPlaying())
+			SlotAudioComponent->Stop();
+ 
+		SlotAudioComponent = UGameplayStatics::SpawnSoundAtLocation(
+			this, EjectSound, GetComponentLocation());
 	}
  
 	OnSlotChanged.Broadcast(this);

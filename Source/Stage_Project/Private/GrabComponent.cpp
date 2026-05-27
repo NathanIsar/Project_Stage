@@ -102,6 +102,18 @@ void UGrabComponent::Grab(AActor* Target)
 
     OnActorGrabbed.Broadcast(Target);
     
+    //if (GrabSound)
+        //UGameplayStatics::PlaySoundAtLocation(this, GrabSound, Target->GetActorLocation());
+    
+    if (GrabSound)
+    {
+        if (SlotAudioComponent && SlotAudioComponent->IsPlaying())
+            SlotAudioComponent->Stop();
+ 
+        SlotAudioComponent = UGameplayStatics::SpawnSoundAtLocation(
+            this, GrabSound, Target->GetActorLocation());
+    }
+    
     GetWorld()->GetTimerManager().PauseTimer(HoverTimerHandle);
 }
 
@@ -126,6 +138,19 @@ void UGrabComponent::Release()
         IIGrabbable::Execute_OnReleased(Released, DropLocation);
 
     OnActorReleased.Broadcast(Released);
+    
+    //if (ReleaseSound)
+        //UGameplayStatics::PlaySoundAtLocation(this, ReleaseSound, Released->GetActorLocation());
+    
+    if (ReleaseSound)
+    {
+        if (SlotAudioComponent && SlotAudioComponent->IsPlaying())
+            SlotAudioComponent->Stop();
+ 
+        SlotAudioComponent = UGameplayStatics::SpawnSoundAtLocation(
+            this, ReleaseSound, Released->GetActorLocation());
+    }
+    
     HeldActor = nullptr;
     if (ANumberGrab* Digit = Cast<ANumberGrab>(Released))
     {

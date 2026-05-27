@@ -48,9 +48,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Puzzle|Sound")
 	USoundBase* EjectSound = nullptr;
 	
-protected:
-	
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Puzzle|Sound")
+private:
+	UPROPERTY()
 	UAudioComponent* SlotAudioComponent = nullptr;
-	
 };

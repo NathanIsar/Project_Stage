@@ -65,8 +65,17 @@ EPuzzleResult APuzzleStele::CheckCode()
 
 	if (bCorrect)
 	{
+		//if (SuccessSound)
+			//UGameplayStatics::PlaySoundAtLocation(this, SuccessSound, GetActorLocation());
+		
 		if (SuccessSound)
-			UGameplayStatics::PlaySoundAtLocation(this, SuccessSound, GetActorLocation());
+		{
+			if (SteleAudioComponent && SteleAudioComponent->IsPlaying())
+				SteleAudioComponent->Stop();
+ 
+			SteleAudioComponent = UGameplayStatics::SpawnSoundAtLocation(
+				this, SuccessSound, GetActorLocation());
+		}
 		
 		OnCodeValidated.Broadcast();
 
@@ -78,8 +87,16 @@ EPuzzleResult APuzzleStele::CheckCode()
 		return EPuzzleResult::Correct;
 	}
 	
+	//if (FailSound)
+		//UGameplayStatics::PlaySoundAtLocation(this, FailSound, GetActorLocation());
 	if (FailSound)
-		UGameplayStatics::PlaySoundAtLocation(this, FailSound, GetActorLocation());
+	{
+		if (SteleAudioComponent && SteleAudioComponent->IsPlaying())
+			SteleAudioComponent->Stop();
+ 
+		SteleAudioComponent = UGameplayStatics::SpawnSoundAtLocation(
+			this, FailSound, GetActorLocation());
+	}
 
 	OnCodeWrong.Broadcast();
 	return EPuzzleResult::Wrong;
