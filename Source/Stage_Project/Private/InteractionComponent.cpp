@@ -2,7 +2,6 @@
 #include "IInteractable.h"
 #include "Components/SphereComponent.h"
 #include "GameFramework/Actor.h"
-#include "Kismet/GameplayStatics.h"
 #include "TimerManager.h"
 #include "DrawDebugHelpers.h"
 
@@ -18,20 +17,25 @@ UInteractionComponent::UInteractionComponent()
 	InteractionSphere->SetGenerateOverlapEvents(true);
 }
 
+void UInteractionComponent::OnRegister()
+{
+	Super::OnRegister();
+	if (InteractionSphere && GetOwner())
+	{
+		InteractionSphere->SetupAttachment(GetOwner()->GetRootComponent());
+		InteractionSphere->RegisterComponent();
+	}
+}
+
 void UInteractionComponent::BeginPlay()
 {
 	Super::BeginPlay();
 	if (InteractionSphere)
 	{
-		InteractionSphere->SetupAttachment(GetOwner()->GetRootComponent());
-		InteractionSphere->SetSphereRadius(InteractionRange);
-		
-		// Bind overlap events
 		InteractionSphere->OnComponentBeginOverlap.AddDynamic(this, &UInteractionComponent::OnOverlapBegin);
 		InteractionSphere->OnComponentEndOverlap.AddDynamic(this, &UInteractionComponent::OnOverlapEnd);
 	}
 }
-
 
 void UInteractionComponent::TryInteract()
 {
@@ -107,6 +111,8 @@ void UInteractionComponent::OnOverlapBegin(UPrimitiveComponent* OverlappedCompon
 	{
 		IIInteractable::Execute_OnInteractionRangeEntered(OtherActor, GetOwner());
 		
+		InteractablesInRange.AddUnique(OtherActor);
+		
 		if (!CurrentInteractable)
 		{
 			UpdateCurrentInteractable(OtherActor);
@@ -131,6 +137,8 @@ void UInteractionComponent::OnOverlapEnd(UPrimitiveComponent* OverlappedComponen
 	if (OtherActor && OtherActor->Implements<UIInteractable>())
 	{
 		IIInteractable::Execute_OnInteractionRangeExited(OtherActor, GetOwner());
+		
+		InteractablesInRange.Remove(OtherActor);
 		
 		if (OtherActor == CurrentInteractable)
 		{
@@ -205,4 +213,3 @@ void UInteractionComponent::UpdateCurrentInteractable(AActor* NewInteractable)
 		}
 	}
 }
-

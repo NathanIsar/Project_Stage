@@ -28,12 +28,15 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Interaction|Settings")
 	float InteractionCooldown = 1.f;
-
+	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Interaction|Settings")
 	bool bRequiresLineOfSight = true;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Interaction|Feedback")
 	class UStaticMeshComponent* MeshComponent;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Interaction|Debug")
+	bool bDebugMode = false;
 	
 	UFUNCTION(BlueprintImplementableEvent, Category = "Interaction")
 	void OnInteracted(AActor* Interactor);
