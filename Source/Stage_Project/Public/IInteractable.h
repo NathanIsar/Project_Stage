@@ -27,4 +27,7 @@ public:
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Interaction")
 	void OnInteractionRangeExited(AActor* Interactor);
+	
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Interaction")
+	FText GetActionName() const;//surcharger dans les objets interactables
 };

@@ -14,11 +14,11 @@ class STAGE_PROJECT_API ABaseGrabbableActor : public AActor, public IIGrabbable
 public:
 	ABaseGrabbableActor();
 	
-	virtual void OnGrabbed_Implementation(AActor* Grabber)         override;
-	virtual void OnReleased_Implementation(FVector DropLocation)   override;
-	virtual void OnHovered_Implementation()                        override;
-	virtual void OnUnhovered_Implementation()                      override;
-	virtual FText GetInteractLabel_Implementation()                override;
+	virtual void OnGrabbed_Implementation(AActor* Grabber) override;
+	virtual void OnReleased_Implementation(FVector DropLocation) override;
+	virtual void OnHovered_Implementation() override;
+	virtual void OnUnhovered_Implementation() override;
+	virtual FText GetActionName_Implementation() const override;
 
 
 	UPROPERTY(BlueprintReadOnly, Category = "Grab|State")

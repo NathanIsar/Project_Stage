@@ -30,6 +30,6 @@ public:
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
 	void OnUnhovered();
 	
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable)
-	FText GetInteractLabel();
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Interaction")
+	FText GetActionName() const;
 };

@@ -76,10 +76,11 @@ void ABaseGrabbableActor::OnUnhovered_Implementation()
 	
 }
 
-FText ABaseGrabbableActor::GetInteractLabel_Implementation()
+FText ABaseGrabbableActor::GetActionName_Implementation() const
 {
 	return InteractLabel;
 }
+
 
 void ABaseGrabbableActor::ApplyMaterial(UMaterialInterface* Material)
 {

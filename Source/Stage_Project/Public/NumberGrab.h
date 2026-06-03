@@ -40,7 +40,7 @@ public:
 	virtual void OnReleased_Implementation(FVector DropLocation) override;
 	virtual void OnHovered_Implementation() override;
 	virtual void OnUnhovered_Implementation() override;
-	virtual FText GetInteractLabel_Implementation() override;
+	virtual FText GetActionName_Implementation() const override;
 
 protected:
 	virtual void BeginPlay() override;

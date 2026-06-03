@@ -19,6 +19,7 @@ public:
 	virtual bool CanInteract_Implementation() const override;
 	virtual void OnInteractionRangeEntered_Implementation(AActor* Interactor) override;
 	virtual void OnInteractionRangeExited_Implementation(AActor* Interactor) override;
+	virtual FText GetActionName_Implementation() const override;
 
 protected:
 	virtual void BeginPlay() override;

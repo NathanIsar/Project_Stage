@@ -47,12 +47,9 @@ void ANumberGrab::OnUnhovered_Implementation()
 	OnDigitUnhovered.Broadcast();
 }
 
-FText ANumberGrab::GetInteractLabel_Implementation()
+FText ANumberGrab::GetActionName_Implementation() const
 {
-	return FText::Format(
-		FText::FromString(TEXT("Prendre le {0}")),
-		FText::AsNumber(DigitValue)
-	);
+	return FText::FromString("Grab");
 }
 
 

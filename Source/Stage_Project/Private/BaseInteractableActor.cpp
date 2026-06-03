@@ -83,3 +83,8 @@ void ABaseInteractableActor::OnInteractionRangeExited_Implementation(AActor* Int
 	if (bDebugMode)
 		UE_LOG(LogTemp, Log, TEXT("%s: Player exited range"), *GetName());
 }
+
+FText ABaseInteractableActor::GetActionName_Implementation() const
+{
+	return FText::FromString("Interact");
+}
