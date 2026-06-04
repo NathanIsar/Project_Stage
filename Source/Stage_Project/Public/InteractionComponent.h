@@ -2,6 +2,7 @@
  
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "Camera/CameraComponent.h"
 #include "InteractionComponent.generated.h"
  
  
@@ -25,6 +26,9 @@ public:
 	
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Interaction")
 	AActor* GetCurrentInteractable() const { return CurrentInteractable; }
+	
+	UPROPERTY(BlueprintReadOnly, Category="Grab|State")
+	AActor* FocusedInteractable = nullptr;
 	
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Interaction")
 	const TArray<AActor*>& GetInteractablesInRange() const { return InteractablesInRange; }
@@ -59,6 +63,15 @@ protected:
  
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Interaction")
 	bool bDebugMode = false;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Interaction")
+	float HUDRange = 180.f;
+	
+	FTimerHandle HUDUpdateTimerHandle;
+	void UpdateHUDVisibility();
+ 
+	UPROPERTY()
+	UCameraComponent* PlayerCamera;
  
  
 private:	

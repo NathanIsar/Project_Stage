@@ -11,9 +11,16 @@ UInteractionComponent::UInteractionComponent()
 	
 	InteractionSphere = CreateDefaultSubobject<USphereComponent>(TEXT("InteractionSphere"));
 	InteractionSphere->SetSphereRadius(InteractionRange);
+	
 	InteractionSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	InteractionSphere->SetCollisionObjectType(ECC_WorldDynamic); // La sphère elle-même est vue comme dynamique
+	
 	InteractionSphere->SetCollisionResponseToAllChannels(ECR_Ignore);
-	InteractionSphere->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+	
+	InteractionSphere->SetCollisionResponseToChannel(ECC_WorldStatic, ECR_Overlap);
+	InteractionSphere->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Overlap);
+	InteractionSphere->SetCollisionResponseToChannel(ECC_PhysicsBody, ECR_Overlap);
+	
 	InteractionSphere->SetGenerateOverlapEvents(true);
 }
 
@@ -22,8 +29,7 @@ void UInteractionComponent::OnRegister()
 	Super::OnRegister();
 	if (InteractionSphere && GetOwner())
 	{
-		InteractionSphere->SetupAttachment(GetOwner()->GetRootComponent());
-		InteractionSphere->RegisterComponent();
+		InteractionSphere->AttachToComponent(GetOwner()->GetRootComponent(), FAttachmentTransformRules::SnapToTargetIncludingScale);
 	}
 }
 
@@ -34,6 +40,57 @@ void UInteractionComponent::BeginPlay()
 	{
 		InteractionSphere->OnComponentBeginOverlap.AddDynamic(this, &UInteractionComponent::OnOverlapBegin);
 		InteractionSphere->OnComponentEndOverlap.AddDynamic(this, &UInteractionComponent::OnOverlapEnd);
+	}
+	
+	if (AActor* MyOwner = GetOwner())
+	{
+		PlayerCamera = MyOwner->FindComponentByClass<UCameraComponent>();
+	}
+	
+	GetWorld()->GetTimerManager().SetTimer(HUDUpdateTimerHandle, this, &UInteractionComponent::UpdateHUDVisibility, 0.1f, true);
+}
+
+void UInteractionComponent::UpdateHUDVisibility()
+{
+	if (!PlayerCamera) return;
+
+	AActor* NewTarget = nullptr;
+	FVector Start = PlayerCamera->GetComponentLocation();
+	FVector End   = Start + (PlayerCamera->GetForwardVector() * HUDRange); 
+
+	FHitResult Hit;
+	FCollisionQueryParams Params;
+	Params.AddIgnoredActor(GetOwner());
+
+	if (GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, Params))
+	{
+		AActor* HitActor = Hit.GetActor();
+
+		if (bDebugMode && HitActor)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("HUD Trace touche : %s | Interface : %d | InRange : %d"),
+				*HitActor->GetName(),
+				(int32)HitActor->Implements<UIInteractable>(),
+				(int32)InteractablesInRange.Contains(HitActor));
+		}
+
+		if (HitActor && HitActor->Implements<UIInteractable>())
+			NewTarget = HitActor;
+	}
+
+	if (bDebugMode)
+	{
+		GEngine->AddOnScreenDebugMessage(1, 0.1f, FColor::Cyan,
+			FString::Printf(TEXT("Objets à portée : %d"), InteractablesInRange.Num()));
+	}
+	
+	if (NewTarget != FocusedInteractable)
+	{
+		AActor* OldFocused   = FocusedInteractable;
+		FocusedInteractable  = NewTarget;
+
+		if (OldFocused)        OnInteractableLost.Broadcast();
+		if (FocusedInteractable) OnInteractableDetected.Broadcast(FocusedInteractable);
 	}
 }
 
@@ -200,16 +257,6 @@ void UInteractionComponent::UpdateCurrentInteractable(AActor* NewInteractable)
 {
 	if (CurrentInteractable != NewInteractable)
 	{
-		if (CurrentInteractable)
-		{
-			OnInteractableLost.Broadcast();
-		}
-		
 		CurrentInteractable = NewInteractable;
-		
-		if (CurrentInteractable)
-		{
-			OnInteractableDetected.Broadcast(CurrentInteractable);
-		}
 	}
 }
