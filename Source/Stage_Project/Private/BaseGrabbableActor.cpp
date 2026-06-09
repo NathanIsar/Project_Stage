@@ -1,7 +1,6 @@
 #include "BaseGrabbableActor.h"
 #include "Components/StaticMeshComponent.h"
 
-
 void ABaseGrabbableActor::OnGrabbed_Implementation(AActor* Grabber)
 {
 	bIsGrabbed     = true;
