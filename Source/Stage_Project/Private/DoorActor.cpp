@@ -125,11 +125,6 @@ void ADoorActor::UpdateOpenAnimation()
         OnDoorOpened();
         
         PlayerTrigger->SetGenerateOverlapEvents(true);
-
-        if (bAutoClose)
-        {
-            ScheduleAutoClose();
-        }
         
         UE_LOG(LogTemp, Log, TEXT("Door fully opened!"));
     }

@@ -2,48 +2,30 @@
 
 ANumberGrab::ANumberGrab()
 {
-	PrimaryActorTick.bCanEverTick = false;
-	
-	MeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Mesh"));
-	RootComponent = MeshComponent;
-	MeshComponent->SetSimulatePhysics(false);
-	MeshComponent->SetCollisionProfileName(TEXT("PhysicsActor"));
-}
-
-void ANumberGrab::BeginPlay()
-{
-	Super::BeginPlay();
-	
 }
 
 void ANumberGrab::OnGrabbed_Implementation(AActor* Grabber)
 {
-	bIsGrabbed = true;
-	bIsPlaced  = false;
-    
-	if (GrabbedMaterial)
-		MeshComponent->SetMaterial(0, GrabbedMaterial);
-    
+	Super::OnGrabbed_Implementation(Grabber);
+	bIsPlaced = false;
 	OnDigitGrabbed.Broadcast();
 }
 
 void ANumberGrab::OnReleased_Implementation(FVector DropLocation)
 {
-	bIsGrabbed = false;
-    
-	if (DefaultMaterial)
-		MeshComponent->SetMaterial(0, DefaultMaterial);
-    
+	Super::OnReleased_Implementation(DropLocation);
 	OnDigitReleased.Broadcast();
 }
 
 void ANumberGrab::OnHovered_Implementation()
 {
+	Super::OnHovered_Implementation();
 	OnDigitHovered.Broadcast();
 }
 
 void ANumberGrab::OnUnhovered_Implementation()
 {
+	Super::OnUnhovered_Implementation();
 	OnDigitUnhovered.Broadcast();
 }
 
@@ -51,6 +33,3 @@ FText ANumberGrab::GetActionName_Implementation() const
 {
 	return FText::FromString("Grab");
 }
-
-
-

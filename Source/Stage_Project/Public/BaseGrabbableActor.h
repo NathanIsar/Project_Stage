@@ -36,12 +36,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grab|Settings")
 	FText InteractLabel = FText::FromString(TEXT("Grab"));
 	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grab|Settings")
-	bool bSimulatePhysicsWhileGrabbed = false;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grab|Settings")
-	bool bDisableCollisionWhileGrabbed = true;
-
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Grab|Debug")
 	bool bDebugMode = false;
 	

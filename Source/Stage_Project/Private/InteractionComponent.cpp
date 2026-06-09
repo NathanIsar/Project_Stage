@@ -74,7 +74,7 @@ void UInteractionComponent::UpdateHUDVisibility()
 				(int32)InteractablesInRange.Contains(HitActor));
 		}
 
-		if (HitActor && HitActor->Implements<UIInteractable>())
+		if (HitActor && HitActor->Implements<UIInteractable>() && IIInteractable::Execute_CanInteract(HitActor))
 			NewTarget = HitActor;
 	}
 
