@@ -30,6 +30,9 @@ struct FLedgeData
 
 	UPROPERTY(BlueprintReadOnly)
 	bool bIsValid = false;
+	
+	UPROPERTY(BlueprintReadOnly)
+	bool bCanMantle = false;
 };
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
@@ -54,15 +57,18 @@ public:
 	
 	UFUNCTION(BlueprintCallable, Category = "Ledge Climbing")
 	void ReleaseLedge();
-
+	
 	UFUNCTION(BlueprintCallable, Category = "Ledge Climbing")
 	void StartLateralMove(float Direction);
 
 	UFUNCTION(BlueprintCallable, Category = "Ledge Climbing")
 	void StopLateralMove();
-
+	
 	UFUNCTION(BlueprintCallable, Category = "Ledge Climbing")
 	void UpdateLateralInput(float RightAxis);
+	
+	UFUNCTION(BlueprintCallable, Category = "Ledge Climbing")
+	void LedgeJump();
 
 	UFUNCTION(BlueprintPure, Category = "Ledge Climbing")
 	ELedgeState GetLedgeState() const { return CurrentState; }
@@ -75,6 +81,9 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Ledge Climbing")
 	bool IsClimbing() const { return CurrentState == ELedgeState::Climbing || CurrentState == ELedgeState::Vaulting; }
+	
+	UFUNCTION(BlueprintPure, Category = "Ledge Climbing")
+	bool CanMantleCurrentLedge() const { return CurrentLedgeData.bCanMantle; }
 
 	// ── Detection ─────────────────────────────────────────────────────────────
 
@@ -88,13 +97,27 @@ public:
 	float MinLedgeHeight = 50.f;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|Detection")
-	float LedgeDetectionRadius = 15.f;
+	float LedgeDetectionRadius = 6.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|Detection")
 	float MinSurfaceDotUp = 0.7f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|Detection")
-	TEnumAsByte<ECollisionChannel> TraceChannel = ECC_Visibility;
+	TEnumAsByte<ECollisionChannel> TraceChannel = ECC_WorldStatic;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|Debug")
+	bool bDebugLedge = false;
+
+	// ── Mantle (montée) ─────────────────────────────────────────────────────────
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|Mantle")
+	float MantleDepthMargin = 0.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|Mantle")
+	FName ForceMantleTag = TEXT("LedgeMantle");
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|Mantle")
+	FName HangOnlyTag = TEXT("LedgeHangOnly");
 
 	// ── Movement ──────────────────────────────────────────────────────────────
 	
@@ -106,9 +129,24 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|Movement")
 	float HangDropOffset = 80.f;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|Movement")
+	float HangWallGap = 1.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|Movement")
 	float LateralMoveSpeed = 150.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|Movement")
+	float LateralHeightTolerance = 30.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|Movement")
+	float LedgeJumpUpVelocity = 550.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|Movement")
+	float LedgeJumpOutVelocity = 150.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|Movement")
+	float MantleInputLockoutTime = 0.2f;
 	
 	// ── Animation ─────────────────────────────────────────────────────────────
 	
@@ -120,32 +158,26 @@ public:
 
 private:
 
-	// ── Détection ─────────────────────────────────────────────────────────────
 	bool DetectLedge(FLedgeData& OutLedgeData) const;
 	bool TraceForWall(FHitResult& OutHit) const;
-
 	bool TraceForLedgeTop(const FHitResult& WallHit, FVector& OutLedgeTopPos) const;
-
-
 	bool TraceForLedgeTopAt(const FHitResult& WallHit, const FVector& CharPos, FVector& OutLedgeTopPos) const;
-
 	bool IsLedgeClearAbove(const FVector& LedgeTopPos) const;
+
+	bool CanMantle(const FLedgeData& Ledge, const AActor* LedgeActor) const;
 
 	bool CheckLedgeAtLateralOffset(float LateralOffset, FLedgeData& OutLedgeData) const;
 	
-	// ── State machine ─────────────────────────────────────────────────────────
 	void SetState(ELedgeState NewState);
 	void TickHanging(float DeltaTime);
 	void TickClimbing(float DeltaTime);
 	void TickVaulting(float DeltaTime);
 	
-	// ── Helpers ───────────────────────────────────────────────────────────────
 	ACharacter* GetOwnerCharacter() const;
 	void ApplyHangingPhysics();
 	void RestoreMovement();
 	FVector ComputeHangPosition(const FLedgeData& LedgeData) const;
 	
-	// ── State ─────────────────────────────────────────────────────────────────
 	ELedgeState CurrentState = ELedgeState::None;
 	FLedgeData  CurrentLedgeData;
 
@@ -155,6 +187,8 @@ private:
 	FRotator VaultStartRotation = FRotator::ZeroRotator;
 
 	float LateralDirection = 0.f;
+
+	float GrabTimeSeconds = -100.f;
 
 	float SavedMaxFlySpeed  = 600.f;
 	float SavedMaxWalkSpeed = 600.f;

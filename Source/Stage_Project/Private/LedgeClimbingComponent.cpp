@@ -52,6 +52,7 @@ void ULedgeClimbingComponent::TryGrabLedge()
 	if (!DetectLedge(Detected)) return;
 
 	CurrentLedgeData = Detected;
+	GrabTimeSeconds  = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
 	SetState(ELedgeState::Hanging);
 }
 
@@ -62,7 +63,11 @@ void ULedgeClimbingComponent::TryClimbUp()
 	ACharacter* Char = GetOwnerCharacter();
 	if (!Char) return;
 	
-	if (!IsLedgeClearAbove(CurrentLedgeData.LedgeTopPosition)) return;
+	if (GetWorld() && (GetWorld()->GetTimeSeconds() - GrabTimeSeconds) < MantleInputLockoutTime)
+		return;
+	
+	if (!CurrentLedgeData.bCanMantle)
+		return;
 	
 	const float CapsuleHalfHeight = Char->GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
 	VaultStartLocation = Char->GetActorLocation();
@@ -102,11 +107,13 @@ void ULedgeClimbingComponent::ReleaseLedge()
 void ULedgeClimbingComponent::StartLateralMove(float Direction)
 {
 	if (CurrentState != ELedgeState::Hanging && CurrentState != ELedgeState::Climbing) return;
-	
-	LateralDirection = FMath::Sign(Direction);
 
+	LateralDirection = FMath::Sign(Direction);
 	if (!FMath::IsNearlyZero(LateralDirection))
 	{
+		if (bDebugLedge && GEngine)
+			GEngine->AddOnScreenDebugMessage(104, 1.f, FColor::Cyan,
+				FString::Printf(TEXT("[Lateral] Climbing ON, dir = %.0f"), LateralDirection));
 		SetState(ELedgeState::Climbing);
 	}
 }
@@ -114,26 +121,63 @@ void ULedgeClimbingComponent::StartLateralMove(float Direction)
 void ULedgeClimbingComponent::StopLateralMove()
 {
 	LateralDirection = 0.f;
-
 	if (CurrentState == ELedgeState::Climbing)
-	{
 		SetState(ELedgeState::Hanging);
-	}
 }
 
 void ULedgeClimbingComponent::UpdateLateralInput(float RightAxis)
 {
-	if (CurrentState != ELedgeState::Hanging && CurrentState != ELedgeState::Climbing) return;
+	if (bDebugLedge && GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(101, 1.f, FColor::Yellow,
+			FString::Printf(TEXT("[Lateral] X recu = %.3f | State = %d"),
+				RightAxis, (int32)CurrentState));
+	}
+
+	if (CurrentState != ELedgeState::Hanging && CurrentState != ELedgeState::Climbing)
+	{
+		if (bDebugLedge && GEngine)
+			GEngine->AddOnScreenDebugMessage(102, 1.f, FColor::Red,
+				TEXT("[Lateral] IGNORE : pas en Hanging/Climbing"));
+		return;
+	}
 
 	const float DeadZone = 0.2f;
 	if (FMath::Abs(RightAxis) > DeadZone)
 	{
-		StartLateralMove(RightAxis);  // le signe détermine gauche/droite
+		if (bDebugLedge && GEngine)
+			GEngine->AddOnScreenDebugMessage(103, 1.f, FColor::Green,
+				FString::Printf(TEXT("[Lateral] -> StartLateralMove(%.2f)"), RightAxis));
+		StartLateralMove(RightAxis);
 	}
 	else
 	{
+		if (bDebugLedge && GEngine)
+			GEngine->AddOnScreenDebugMessage(103, 1.f, FColor::Orange,
+				FString::Printf(TEXT("[Lateral] X sous la dead zone (%.3f <= 0.2) -> STOP. Mauvais axe ?"), FMath::Abs(RightAxis)));
 		StopLateralMove();
 	}
+}
+
+void ULedgeClimbingComponent::LedgeJump()
+{
+	if (CurrentState != ELedgeState::Hanging && CurrentState != ELedgeState::Climbing) return;
+
+	ACharacter* Char = GetOwnerCharacter();
+	if (!Char) return;
+	
+	const FVector LaunchVel =
+		FVector::UpVector * LedgeJumpUpVelocity
+		+ CurrentLedgeData.LedgeNormal * LedgeJumpOutVelocity;
+	
+	LateralDirection = 0.f;
+	RestoreMovement();
+	SetState(ELedgeState::None);
+	CurrentLedgeData       = FLedgeData();
+	bDetectionCooldown     = true;
+	DetectionCooldownTimer = 0.15f;
+
+	Char->LaunchCharacter(LaunchVel, /*bXYOverride=*/true, /*bZOverride=*/true);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -148,7 +192,7 @@ void ULedgeClimbingComponent::TickHanging(float DeltaTime)
 	const FVector TargetPos  = ComputeHangPosition(CurrentLedgeData);
 	const FVector CurrentPos = Char->GetActorLocation();
 	const FVector NewPos     = FMath::VInterpTo(CurrentPos, TargetPos, DeltaTime, HangSnapSpeed);
-	Char->SetActorLocation(NewPos, true);
+	Char->SetActorLocation(NewPos, false);
 }
 
 void ULedgeClimbingComponent::TickClimbing(float DeltaTime)
@@ -161,23 +205,33 @@ void ULedgeClimbingComponent::TickClimbing(float DeltaTime)
 
 	ACharacter* Char = GetOwnerCharacter();
 	if (!Char) return;
-	
+
+	if (bDebugLedge && GEngine)
+		GEngine->AddOnScreenDebugMessage(105, 0.5f, FColor::White, TEXT("[Lateral] TickClimbing actif"));
+
 	const float StepDist = LateralMoveSpeed * DeltaTime;
-	
+
 	FLedgeData NewLedgeData;
 	if (!CheckLedgeAtLateralOffset(LateralDirection * StepDist, NewLedgeData))
 	{
+		if (bDebugLedge && GEngine)
+			GEngine->AddOnScreenDebugMessage(106, 1.f, FColor::Red,
+				TEXT("[Lateral] CheckLedgeAtLateralOffset = FALSE -> arret"));
 		LateralDirection = 0.f;
 		SetState(ELedgeState::Hanging);
 		return;
 	}
-	
+
 	CurrentLedgeData = NewLedgeData;
 
 	const FVector TargetPos  = ComputeHangPosition(CurrentLedgeData);
 	const FVector CurrentPos = Char->GetActorLocation();
 	const FVector NewPos     = FMath::VInterpTo(CurrentPos, TargetPos, DeltaTime, HangSnapSpeed);
-	Char->SetActorLocation(NewPos, true);
+	Char->SetActorLocation(NewPos, false);
+
+	if (bDebugLedge && GEngine)
+		GEngine->AddOnScreenDebugMessage(107, 0.5f, FColor::Green,
+			FString::Printf(TEXT("[Lateral] OK, deplacement de %.1f cm"), FVector::Dist(CurrentPos, NewPos)));
 }
 
 void ULedgeClimbingComponent::TickVaulting(float DeltaTime)
@@ -238,12 +292,12 @@ bool ULedgeClimbingComponent::DetectLedge(FLedgeData& OutLedgeData) const
 		}
 	}
 	
-	if (!IsLedgeClearAbove(LedgeTopPos)) return false;
-	
 	OutLedgeData.bIsValid         = true;
 	OutLedgeData.LedgeNormal      = WallHit.ImpactNormal;
 	OutLedgeData.LedgeTopPosition = LedgeTopPos;
 	OutLedgeData.HangPosition     = ComputeHangPosition(OutLedgeData);
+	
+	OutLedgeData.bCanMantle = CanMantle(OutLedgeData, WallHit.GetActor());
 
 	return true;
 }
@@ -303,6 +357,7 @@ bool ULedgeClimbingComponent::IsLedgeClearAbove(const FVector& LedgeTopPos) cons
 
 	const float CapsuleHalfHeight = Char->GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
 	const float CapsuleRadius     = Char->GetCapsuleComponent()->GetScaledCapsuleRadius();
+	
 	const float Clearance = 5.f;
 	const FVector TestCenter = LedgeTopPos + FVector(0.f, 0.f, CapsuleHalfHeight + Clearance);
 
@@ -313,46 +368,106 @@ bool ULedgeClimbingComponent::IsLedgeClearAbove(const FVector& LedgeTopPos) cons
 	Params.AddIgnoredActor(Char);
 
 	const bool bBlocked = GetWorld()->OverlapBlockingTestByChannel(
-		TestCenter,
-		FQuat::Identity,
-		TraceChannel,
-		FCollisionShape::MakeCapsule(TestRadius, TestHalfHeight),
-		Params);
+		TestCenter, FQuat::Identity, TraceChannel,
+		FCollisionShape::MakeCapsule(TestRadius, TestHalfHeight), Params);
 
 	return !bBlocked;
+}
+
+bool ULedgeClimbingComponent::CanMantle(const FLedgeData& Ledge, const AActor* LedgeActor) const
+{
+	if (LedgeActor)
+	{
+		if (!HangOnlyTag.IsNone() && LedgeActor->ActorHasTag(HangOnlyTag))
+			return false; 
+		if (!ForceMantleTag.IsNone() && LedgeActor->ActorHasTag(ForceMantleTag))
+			return true;   
+	}
+
+	const ACharacter* Char = GetOwnerCharacter();
+	if (!Char) return false;
+	
+	if (!IsLedgeClearAbove(Ledge.LedgeTopPosition)) return false;
+	
+	const float CapsuleRadius = Char->GetCapsuleComponent()->GetScaledCapsuleRadius();
+	const FVector StandXY = Ledge.LedgeTopPosition
+		- Ledge.LedgeNormal * (CapsuleRadius + MantleDepthMargin);
+
+	const FVector ProbeStart = FVector(StandXY.X, StandXY.Y, Ledge.LedgeTopPosition.Z + 20.f);
+	const FVector ProbeEnd   = FVector(StandXY.X, StandXY.Y, Ledge.LedgeTopPosition.Z - 20.f);
+
+	FHitResult FloorHit;
+	FCollisionQueryParams Params;
+	Params.AddIgnoredActor(Char);
+
+	if (!GetWorld()->LineTraceSingleByChannel(FloorHit, ProbeStart, ProbeEnd, TraceChannel, Params))
+		return false; 
+
+	if (FMath::Abs(FloorHit.ImpactPoint.Z - Ledge.LedgeTopPosition.Z) > 18.f)
+		return false;
+
+	return true;
 }
 
 bool ULedgeClimbingComponent::CheckLedgeAtLateralOffset(float LateralOffset, FLedgeData& OutLedgeData) const
 {
 	const ACharacter* Char = GetOwnerCharacter();
 	if (!Char) return false;
+
+	const FVector Normal     = CurrentLedgeData.LedgeNormal;
+	const FVector LedgeRight  = FVector::CrossProduct(FVector::UpVector, Normal).GetSafeNormal();
 	
-	const FVector LedgeRight     = FVector::CrossProduct(FVector::UpVector, CurrentLedgeData.LedgeNormal).GetSafeNormal();
-	const FVector HypotheticalPos = Char->GetActorLocation() + LedgeRight * LateralOffset;
-	
-	const FVector WallTraceEnd = HypotheticalPos + (-CurrentLedgeData.LedgeNormal) * WallDetectionDistance;
+	const FVector NewTopGuess = CurrentLedgeData.LedgeTopPosition + LedgeRight * LateralOffset;
+	const FVector WallStart = NewTopGuess + Normal * 40.f + FVector(0.f, 0.f, -10.f);
+	const FVector WallEnd   = NewTopGuess - Normal * 40.f + FVector(0.f, 0.f, -10.f);
+
+	if (bDebugLedge)
+	{
+		DrawDebugLine(GetWorld(), WallStart, WallEnd, FColor::Magenta, false, 0.5f, 0, 2.f);
+		DrawDebugPoint(GetWorld(), NewTopGuess, 12.f, FColor::Yellow, false, 0.5f);
+		if (GEngine)
+			GEngine->AddOnScreenDebugMessage(108, 1.f, FColor::White,
+				FString::Printf(TEXT("[Check] Normal=(%.2f,%.2f,%.2f) Right=(%.2f,%.2f,%.2f) offset=%.2f"),
+					Normal.X, Normal.Y, Normal.Z, LedgeRight.X, LedgeRight.Y, LedgeRight.Z, LateralOffset));
+	}
 
 	FHitResult WallHit;
 	FCollisionQueryParams Params;
 	Params.AddIgnoredActor(Char);
 
-	if (!GetWorld()->LineTraceSingleByChannel(WallHit, HypotheticalPos, WallTraceEnd, TraceChannel, Params))
+	if (!GetWorld()->LineTraceSingleByChannel(WallHit, WallStart, WallEnd, TraceChannel, Params))
+	{
+		if (bDebugLedge && GEngine)
+			GEngine->AddOnScreenDebugMessage(109, 1.f, FColor::Red,
+				TEXT("[Check] ECHEC A : trace mur lateral ne touche rien"));
 		return false;
+	}
+	if (bDebugLedge) DrawDebugSphere(GetWorld(), WallHit.ImpactPoint, 8.f, 8, FColor::Green, false, 0.5f);
 	
 	FVector NewLedgeTopPos;
-	if (!TraceForLedgeTopAt(WallHit, HypotheticalPos, NewLedgeTopPos))
+	if (!TraceForLedgeTopAt(WallHit, Char->GetActorLocation(), NewLedgeTopPos))
+	{
+		if (bDebugLedge && GEngine)
+			GEngine->AddOnScreenDebugMessage(110, 1.f, FColor::Red,
+				TEXT("[Check] ECHEC B : pas de dessus de rebord a cote"));
 		return false;
+	}
+	if (bDebugLedge) DrawDebugSphere(GetWorld(), NewLedgeTopPos, 8.f, 8, FColor::Blue, false, 0.5f);
 	
-	const float HypotheticalFeetZ = HypotheticalPos.Z - Char->GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
-	const float LedgeDeltaZ       = NewLedgeTopPos.Z - HypotheticalFeetZ;
-	if (LedgeDeltaZ < MinLedgeHeight || LedgeDeltaZ > MaxLedgeHeight) return false;
-
-	if (!IsLedgeClearAbove(NewLedgeTopPos)) return false;
+	const float DeltaZ = FMath::Abs(NewLedgeTopPos.Z - CurrentLedgeData.LedgeTopPosition.Z);
+	if (DeltaZ > LateralHeightTolerance)
+	{
+		if (bDebugLedge && GEngine)
+			GEngine->AddOnScreenDebugMessage(111, 1.f, FColor::Red,
+				FString::Printf(TEXT("[Check] ECHEC C : saut de hauteur %.1f > %.1f"), DeltaZ, LateralHeightTolerance));
+		return false;
+	}
 
 	OutLedgeData.bIsValid         = true;
 	OutLedgeData.LedgeNormal      = WallHit.ImpactNormal;
 	OutLedgeData.LedgeTopPosition = NewLedgeTopPos;
 	OutLedgeData.HangPosition     = ComputeHangPosition(OutLedgeData);
+	OutLedgeData.bCanMantle       = CanMantle(OutLedgeData, WallHit.GetActor());
 
 	return true;
 }
@@ -371,9 +486,7 @@ void ULedgeClimbingComponent::SetState(ELedgeState NewState)
 	if (NewState == ELedgeState::Hanging)
 	{
 		if (OldState != ELedgeState::Climbing)
-		{
 			ApplyHangingPhysics();
-		}
 	}
 }
 
@@ -388,15 +501,15 @@ void ULedgeClimbingComponent::ApplyHangingPhysics()
 
 	UCharacterMovementComponent* CMC = Char->GetCharacterMovement();
 	if (!CMC) return;
-	
+
 	SavedMaxFlySpeed  = CMC->MaxFlySpeed;
 	SavedMaxWalkSpeed = CMC->MaxWalkSpeed;
 	
 	CMC->SetMovementMode(MOVE_Flying);
 	CMC->StopMovementImmediately();
 	CMC->GravityScale = 0.f;
-	CMC->MaxFlySpeed  = 0.f; 
-	
+	CMC->MaxFlySpeed  = 0.f;
+
 	if (AController* Controller = Char->GetController())
 	{
 		const float    WallFacingYaw = (-CurrentLedgeData.LedgeNormal).Rotation().Yaw;
@@ -421,9 +534,7 @@ void ULedgeClimbingComponent::RestoreMovement()
 	if (bInputDisabled)
 	{
 		if (APlayerController* PC = Cast<APlayerController>(Char->GetController()))
-		{
 			Char->EnableInput(PC);
-		}
 		bInputDisabled = false;
 	}
 }
@@ -434,9 +545,11 @@ FVector ULedgeClimbingComponent::ComputeHangPosition(const FLedgeData& LedgeData
 	if (!Char) return FVector::ZeroVector;
 
 	const float CapsuleHalfHeight = Char->GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
-	
+	const float CapsuleRadius     = Char->GetCapsuleComponent()->GetScaledCapsuleRadius();
+	const float ForwardOffset = LedgeDetectionRadius + CapsuleRadius + HangWallGap;
+
 	return LedgeData.LedgeTopPosition
-		+ LedgeData.LedgeNormal * 5.f
+		+ LedgeData.LedgeNormal * ForwardOffset
 		+ FVector(0.f, 0.f, -CapsuleHalfHeight - HangDropOffset);
 }
 
