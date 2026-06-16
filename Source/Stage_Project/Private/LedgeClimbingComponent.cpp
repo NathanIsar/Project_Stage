@@ -30,8 +30,7 @@ void ULedgeClimbingComponent::TickComponent(float DeltaTime, ELevelTick TickType
 		if (DetectionCooldownTimer <= 0.f)
 			bDetectionCooldown = false;
 	}
-
-	// Auto-grab après un saut depuis un rebord : attrape un rebord SUPÉRIEUR si on en croise un.
+	
 	if (bAutoGrabbing)
 	{
 		AutoGrabTimer -= DeltaTime;
@@ -81,8 +80,7 @@ ULedgeMarkerComponent* ULedgeClimbingComponent::FindNearestLedge(const FVector& 
 		if (!M || M == Skip) continue;
 
 		const FVector P = M->GetClosestPoint(From);
-
-		// Filtre vertical (au-dessus / en-dessous d'une référence)
+		
 		if (VertDir > 0 && P.Z <= RefZ + VerticalSeparation) continue;
 		if (VertDir < 0 && P.Z >= RefZ - VerticalSeparation) continue;
 
@@ -153,7 +151,6 @@ void ULedgeClimbingComponent::TryClimbUp()
 	const float CapsuleRadius     = Char->GetCapsuleComponent()->GetScaledCapsuleRadius();
 
 	VaultStartLocation = Char->GetActorLocation();
-	// On se place sur le dessus du rebord : reculer (vers le mur) + monter.
 	VaultEndLocation   = CurrentLedgePoint
 		- CurrentLedgeData.LedgeNormal * (CapsuleRadius + 10.f)
 		+ FVector(0.f, 0.f, CapsuleHalfHeight + 5.f);
@@ -246,7 +243,7 @@ void ULedgeClimbingComponent::LedgeJump()
 	bAutoGrabbing = true;
 	AutoGrabTimer = AutoGrabWindow;
 
-	Char->LaunchCharacter(LaunchVel, /*bXYOverride=*/true, /*bZOverride=*/true);
+	Char->LaunchCharacter(LaunchVel, true, true);
 }
 
 void ULedgeClimbingComponent::DropToLowerLedge()
@@ -258,7 +255,7 @@ void ULedgeClimbingComponent::DropToLowerLedge()
 
 	FVector Pt;
 	ULedgeMarkerComponent* M = FindNearestLedge(
-		CurrentLedgePoint, MaxDropDistance, /*VertDir=*/-1, CurrentLedgePoint.Z, CurrentLedge.Get(), Pt);
+		CurrentLedgePoint, MaxDropDistance, -1, CurrentLedgePoint.Z, CurrentLedge.Get(), Pt);
 
 	if (M)
 	{
@@ -297,8 +294,7 @@ void ULedgeClimbingComponent::TickClimbing(float DeltaTime)
 
 	ACharacter* Char = GetOwnerCharacter();
 	if (!Char) return;
-
-	// Déplacer le point le long du segment du rebord, borné aux extrémités.
+	
 	ULedgeMarkerComponent* M = CurrentLedge.Get();
 	const FVector Dir     = M->GetLedgeDirection();
 	const FVector Desired = CurrentLedgePoint + Dir * (LateralDirection * LateralMoveSpeed * DeltaTime);
@@ -307,9 +303,8 @@ void ULedgeClimbingComponent::TickClimbing(float DeltaTime)
 	if (bDebugLedge && GEngine)
 		GEngine->AddOnScreenDebugMessage(120, 0.5f, FColor::White,
 			FString::Printf(TEXT("[Lateral] dir=%.0f"), LateralDirection));
-
-	// Bout du rebord atteint : on s'arrête.
-	if (FVector::DistSquared(Clamped, CurrentLedgePoint) < 0.0625f) // < 0.25 cm
+	
+	if (FVector::DistSquared(Clamped, CurrentLedgePoint) < 0.0625f)
 	{
 		LateralDirection = 0.f;
 		SetState(ELedgeState::Hanging);
@@ -426,9 +421,6 @@ FVector ULedgeClimbingComponent::ComputeHangPosition(const FLedgeData& LedgeData
 
 	const float CapsuleHalfHeight = Char->GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
 	const float CapsuleRadius     = Char->GetCapsuleComponent()->GetScaledCapsuleRadius();
-
-	// Le point du marqueur est le bord saisissable. On place la capsule juste DEVANT
-	// le mur (sortie = rayon + jeu) et plus bas (le corps pend sous le bord).
 	const float ForwardOffset = CapsuleRadius + HangWallGap;
 
 	return LedgeData.LedgeTopPosition
