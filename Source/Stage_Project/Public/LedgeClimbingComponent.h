@@ -69,6 +69,9 @@ public:
 	
 	UFUNCTION(BlueprintCallable, Category = "Ledge Climbing")
 	void LedgeJump();
+	
+	UFUNCTION(BlueprintCallable, Category = "Ledge Climbing")
+	void DropToLowerLedge();
 
 	UFUNCTION(BlueprintPure, Category = "Ledge Climbing")
 	ELedgeState GetLedgeState() const { return CurrentState; }
@@ -84,6 +87,9 @@ public:
 	
 	UFUNCTION(BlueprintPure, Category = "Ledge Climbing")
 	bool CanMantleCurrentLedge() const { return CurrentLedgeData.bCanMantle; }
+	
+	UFUNCTION(BlueprintPure, Category = "Ledge Climbing")
+	float GetLateralDirection() const { return LateralDirection; }
 
 	// ── Detection ─────────────────────────────────────────────────────────────
 
@@ -131,7 +137,7 @@ public:
 	float HangDropOffset = 80.f;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|Movement")
-	float HangWallGap = 1.f;
+	float HangWallGap = 2.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|Movement")
 	float LateralMoveSpeed = 150.f;
@@ -148,6 +154,12 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|Movement")
 	float MantleInputLockoutTime = 0.2f;
 	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|Movement")
+	float MaxDropDistance = 160.f;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|Movement")
+	float MinDropGap = 40.f;
+	
 	// ── Animation ─────────────────────────────────────────────────────────────
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|Animation")
@@ -155,6 +167,15 @@ public:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|Animation")
 	TObjectPtr<UAnimMontage> VaultMontage = nullptr;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|Animation")
+	TObjectPtr<UAnimMontage> GrabMontage = nullptr;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|Animation")
+	TObjectPtr<UAnimMontage> ReleaseToGroundMontage = nullptr;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|Animation")
+	TObjectPtr<UAnimMontage> DropMontage = nullptr;
 
 private:
 
@@ -168,12 +189,15 @@ private:
 
 	bool CheckLedgeAtLateralOffset(float LateralOffset, FLedgeData& OutLedgeData) const;
 	
+	bool DetectLowerLedge(FLedgeData& OutLedgeData) const;
+	
 	void SetState(ELedgeState NewState);
 	void TickHanging(float DeltaTime);
 	void TickClimbing(float DeltaTime);
 	void TickVaulting(float DeltaTime);
 	
 	ACharacter* GetOwnerCharacter() const;
+	void PlayLedgeMontage(UAnimMontage* Montage);
 	void ApplyHangingPhysics();
 	void RestoreMovement();
 	FVector ComputeHangPosition(const FLedgeData& LedgeData) const;

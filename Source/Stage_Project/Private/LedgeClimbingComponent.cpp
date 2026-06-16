@@ -54,6 +54,8 @@ void ULedgeClimbingComponent::TryGrabLedge()
 	CurrentLedgeData = Detected;
 	GrabTimeSeconds  = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
 	SetState(ELedgeState::Hanging);
+	
+	PlayLedgeMontage(GrabMontage);
 }
 
 void ULedgeClimbingComponent::TryClimbUp()
@@ -76,11 +78,7 @@ void ULedgeClimbingComponent::TryClimbUp()
 	VaultStartRotation = Char->GetActorRotation();
 	VaultTimer         = 0.f;
 	
-	if (UAnimInstance* Anim = Char->GetMesh() ? Char->GetMesh()->GetAnimInstance() : nullptr)
-	{
-		UAnimMontage* Montage = VaultMontage ? VaultMontage : ClimbMontage;
-		if (Montage) Anim->Montage_Play(Montage);
-	}
+	PlayLedgeMontage(VaultMontage ? VaultMontage : ClimbMontage);
 
 	if (APlayerController* PC = Cast<APlayerController>(Char->GetController()))
 	{
@@ -94,6 +92,8 @@ void ULedgeClimbingComponent::TryClimbUp()
 void ULedgeClimbingComponent::ReleaseLedge()
 {
 	if (CurrentState == ELedgeState::None) return;
+	
+	PlayLedgeMontage(ReleaseToGroundMontage);
 
 	LateralDirection = 0.f;
 	RestoreMovement();
@@ -102,6 +102,15 @@ void ULedgeClimbingComponent::ReleaseLedge()
 
 	bDetectionCooldown     = true;
 	DetectionCooldownTimer = DetectionCooldownDuration;
+}
+
+void ULedgeClimbingComponent::PlayLedgeMontage(UAnimMontage* Montage)
+{
+	if (!Montage) return;
+	ACharacter* Char = GetOwnerCharacter();
+	if (!Char || !Char->GetMesh()) return;
+	if (UAnimInstance* Anim = Char->GetMesh()->GetAnimInstance())
+		Anim->Montage_Play(Montage);
 }
 
 void ULedgeClimbingComponent::StartLateralMove(float Direction)
@@ -178,6 +187,28 @@ void ULedgeClimbingComponent::LedgeJump()
 	DetectionCooldownTimer = 0.15f;
 
 	Char->LaunchCharacter(LaunchVel, /*bXYOverride=*/true, /*bZOverride=*/true);
+}
+
+void ULedgeClimbingComponent::DropToLowerLedge()
+{
+	if (CurrentState != ELedgeState::Hanging && CurrentState != ELedgeState::Climbing) return;
+
+	FLedgeData Lower;
+	if (DetectLowerLedge(Lower))
+	{
+		LateralDirection = 0.f;
+		CurrentLedgeData = Lower;
+		GrabTimeSeconds  = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
+		
+		if (CurrentState == ELedgeState::Climbing)
+			SetState(ELedgeState::Hanging);
+
+		PlayLedgeMontage(DropMontage); 
+	}
+	else
+	{
+		ReleaseLedge();
+	}
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -472,9 +503,57 @@ bool ULedgeClimbingComponent::CheckLedgeAtLateralOffset(float LateralOffset, FLe
 	return true;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// State machine
-// ─────────────────────────────────────────────────────────────────────────────
+bool ULedgeClimbingComponent::DetectLowerLedge(FLedgeData& OutLedgeData) const
+{
+	const ACharacter* Char = GetOwnerCharacter();
+	if (!Char) return false;
+
+	const FVector Normal = CurrentLedgeData.LedgeNormal;
+	const FVector TopPos = CurrentLedgeData.LedgeTopPosition;
+	const float   ScanStep = 15.f;
+	
+	for (float Drop = MinDropGap; Drop <= MaxDropDistance; Drop += ScanStep)
+	{
+		const float Zc = TopPos.Z - Drop;
+		
+		const FVector Front = FVector(TopPos.X, TopPos.Y, Zc) + Normal * 50.f;
+		const FVector Back  = FVector(TopPos.X, TopPos.Y, Zc) - Normal * WallDetectionDistance;
+
+		FHitResult WallHit;
+		FCollisionQueryParams Params;
+		Params.AddIgnoredActor(Char);
+
+		if (bDebugLedge)
+			DrawDebugLine(GetWorld(), Front, Back, FColor::Purple, false, 1.5f, 0, 1.5f);
+
+		if (!GetWorld()->LineTraceSingleByChannel(WallHit, Front, Back, TraceChannel, Params))
+			continue;
+		
+		const FVector ProbeXY    = WallHit.ImpactPoint - Normal * LedgeDetectionRadius;
+		const FVector ProbeStart = FVector(ProbeXY.X, ProbeXY.Y, Zc + ScanStep);
+		const FVector ProbeEnd   = FVector(ProbeXY.X, ProbeXY.Y, Zc - ScanStep);
+
+		FHitResult TopHit;
+		if (!GetWorld()->LineTraceSingleByChannel(TopHit, ProbeStart, ProbeEnd, TraceChannel, Params))
+			continue;
+		
+		if (FVector::DotProduct(TopHit.ImpactNormal, FVector::UpVector) < MinSurfaceDotUp)
+			continue;
+		
+		OutLedgeData.bIsValid         = true;
+		OutLedgeData.LedgeNormal      = WallHit.ImpactNormal;
+		OutLedgeData.LedgeTopPosition = TopHit.ImpactPoint;
+		OutLedgeData.HangPosition     = ComputeHangPosition(OutLedgeData);
+		OutLedgeData.bCanMantle       = CanMantle(OutLedgeData, WallHit.GetActor());
+
+		if (bDebugLedge)
+			DrawDebugSphere(GetWorld(), TopHit.ImpactPoint, 10.f, 8, FColor::Cyan, false, 1.5f);
+
+		return true;
+	}
+
+	return false;
+}
 
 void ULedgeClimbingComponent::SetState(ELedgeState NewState)
 {
