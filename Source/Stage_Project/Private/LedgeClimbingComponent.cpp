@@ -30,7 +30,6 @@ void ULedgeClimbingComponent::TickComponent(float DeltaTime, ELevelTick TickType
 		if (DetectionCooldownTimer <= 0.f)
 			bDetectionCooldown = false;
 	}
-	
 	if (bAutoGrabbing)
 	{
 		AutoGrabTimer -= DeltaTime;
@@ -52,6 +51,25 @@ void ULedgeClimbingComponent::TickComponent(float DeltaTime, ELevelTick TickType
 					bAutoGrabbing = false;
 				}
 			}
+		}
+	}
+	
+	if (bCameraBlending)
+	{
+		ACharacter* Char = GetOwnerCharacter();
+		AController* Controller = Char ? Char->GetController() : nullptr;
+		if (Controller && CameraBlendDuration > 0.f)
+		{
+			CameraBlendTimer += DeltaTime;
+			const float A = FMath::Clamp(CameraBlendTimer / CameraBlendDuration, 0.f, 1.f);
+			const float S = FMath::SmoothStep(0.f, 1.f, A);
+			const FQuat Q = FQuat::Slerp(FQuat(CameraBlendStart), FQuat(CameraBlendTarget), S);
+			Controller->SetControlRotation(Q.Rotator());
+			if (A >= 1.f) bCameraBlending = false;
+		}
+		else
+		{
+			bCameraBlending = false;
 		}
 	}
 
@@ -151,6 +169,7 @@ void ULedgeClimbingComponent::TryClimbUp()
 	const float CapsuleRadius     = Char->GetCapsuleComponent()->GetScaledCapsuleRadius();
 
 	VaultStartLocation = Char->GetActorLocation();
+	// On se place sur le dessus du rebord : reculer (vers le mur) + monter.
 	VaultEndLocation   = CurrentLedgePoint
 		- CurrentLedgeData.LedgeNormal * (CapsuleRadius + 10.f)
 		+ FVector(0.f, 0.f, CapsuleHalfHeight + 5.f);
@@ -243,7 +262,7 @@ void ULedgeClimbingComponent::LedgeJump()
 	bAutoGrabbing = true;
 	AutoGrabTimer = AutoGrabWindow;
 
-	Char->LaunchCharacter(LaunchVel, true, true);
+	Char->LaunchCharacter(LaunchVel,true, true);
 }
 
 void ULedgeClimbingComponent::DropToLowerLedge()
@@ -277,6 +296,9 @@ void ULedgeClimbingComponent::TickHanging(float DeltaTime)
 {
 	ACharacter* Char = GetOwnerCharacter();
 	if (!Char) return;
+	
+	const float WallYaw = (-CurrentLedgeData.LedgeNormal).Rotation().Yaw;
+	Char->SetActorRotation(FRotator(0.f, WallYaw, 0.f));
 
 	const FVector TargetPos  = ComputeHangPosition(CurrentLedgeData);
 	const FVector CurrentPos = Char->GetActorLocation();
@@ -384,12 +406,22 @@ void ULedgeClimbingComponent::ApplyHangingPhysics()
 	CMC->StopMovementImmediately();
 	CMC->GravityScale = 0.f;
 	CMC->MaxFlySpeed  = 0.f;
+	bSavedUseControllerYaw          = Char->bUseControllerRotationYaw;
+	bSavedOrientToMovement          = CMC->bOrientRotationToMovement;
+	Char->bUseControllerRotationYaw = false;
+	CMC->bOrientRotationToMovement  = false;
 
+	const float WallFacingYaw = (-CurrentLedgeData.LedgeNormal).Rotation().Yaw;
+	Char->SetActorRotation(FRotator(0.f, WallFacingYaw, 0.f));
+	
 	if (AController* Controller = Char->GetController())
 	{
-		const float    WallFacingYaw = (-CurrentLedgeData.LedgeNormal).Rotation().Yaw;
-		const FRotator ControlRot    = Controller->GetControlRotation();
-		Controller->SetControlRotation(FRotator(ControlRot.Pitch, WallFacingYaw, 0.f));
+		CameraBlendStart  = Controller->GetControlRotation();
+		CameraBlendTarget = FRotator(CameraBlendStart.Pitch, WallFacingYaw, 0.f);
+		CameraBlendTimer  = 0.f;
+		bCameraBlending   = (CameraBlendDuration > 0.f);
+		if (!bCameraBlending)
+			Controller->SetControlRotation(CameraBlendTarget);
 	}
 }
 
@@ -405,6 +437,9 @@ void ULedgeClimbingComponent::RestoreMovement()
 	CMC->MaxFlySpeed  = SavedMaxFlySpeed;
 	CMC->MaxWalkSpeed = SavedMaxWalkSpeed;
 	CMC->SetMovementMode(MOVE_Falling);
+	Char->bUseControllerRotationYaw = bSavedUseControllerYaw;
+	CMC->bOrientRotationToMovement  = bSavedOrientToMovement;
+	bCameraBlending = false;
 
 	if (bInputDisabled)
 	{
@@ -416,16 +451,9 @@ void ULedgeClimbingComponent::RestoreMovement()
 
 FVector ULedgeClimbingComponent::ComputeHangPosition(const FLedgeData& LedgeData) const
 {
-	const ACharacter* Char = GetOwnerCharacter();
-	if (!Char) return FVector::ZeroVector;
-
-	const float CapsuleHalfHeight = Char->GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
-	const float CapsuleRadius     = Char->GetCapsuleComponent()->GetScaledCapsuleRadius();
-	const float ForwardOffset = CapsuleRadius + HangWallGap;
-
 	return LedgeData.LedgeTopPosition
-		+ LedgeData.LedgeNormal * ForwardOffset
-		+ FVector(0.f, 0.f, -CapsuleHalfHeight - HangDropOffset);
+		+ LedgeData.LedgeNormal * HangForwardOffset
+		+ FVector(0.f, 0.f, -HangDropOffset);
 }
 
 ACharacter* ULedgeClimbingComponent::GetOwnerCharacter() const

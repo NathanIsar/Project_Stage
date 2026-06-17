@@ -71,7 +71,7 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Ledge Climbing")
 	void LedgeJump();
-
+	
 	UFUNCTION(BlueprintCallable, Category = "Ledge Climbing")
 	void DropToLowerLedge();
 
@@ -89,18 +89,18 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Ledge Climbing")
 	bool CanMantleCurrentLedge() const { return CurrentLedgeData.bCanMantle; }
-
+	
 	UFUNCTION(BlueprintPure, Category = "Ledge Climbing")
 	float GetLateralDirection() const { return LateralDirection; }
 
 	// ── Détection ───────────────────────────────────────────────────────────
-
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|Detection")
 	float GrabRange = 120.f;
-
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|Detection")
 	float MaxDropDistance = 200.f;
-
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|Detection")
 	float VerticalSeparation = 15.f;
 
@@ -114,25 +114,28 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|Movement")
 	float VaultDuration = 0.6f;
-
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|Movement")
 	float HangDropOffset = 80.f;
-
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|Movement")
-	float HangWallGap = 2.f;
+	float HangForwardOffset = 5.f;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|Movement")
+	float CameraBlendDuration = 0.25f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|Movement")
 	float LateralMoveSpeed = 150.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|Movement")
 	float LedgeJumpUpVelocity = 550.f;
-
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|Movement")
 	float LedgeJumpOutVelocity = 40.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|Movement")
 	float MantleInputLockoutTime = 0.2f;
-
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|Movement")
 	float AutoGrabWindow = 1.2f;
 
@@ -143,13 +146,13 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|Animation")
 	TObjectPtr<UAnimMontage> VaultMontage = nullptr;
-
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|Animation")
 	TObjectPtr<UAnimMontage> GrabMontage = nullptr;
-
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|Animation")
 	TObjectPtr<UAnimMontage> ReleaseToGroundMontage = nullptr;
-
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|Animation")
 	TObjectPtr<UAnimMontage> DropMontage = nullptr;
 
@@ -191,6 +194,13 @@ private:
 	float SavedMaxFlySpeed  = 600.f;
 	float SavedMaxWalkSpeed = 600.f;
 	bool  bInputDisabled    = false;
+	
+	bool  bSavedUseControllerYaw = false;
+	bool  bSavedOrientToMovement = false;
+	bool     bCameraBlending   = false;
+	float    CameraBlendTimer  = 0.f;
+	FRotator CameraBlendStart  = FRotator::ZeroRotator;
+	FRotator CameraBlendTarget = FRotator::ZeroRotator;
 
 	bool  bDetectionCooldown     = false;
 	float DetectionCooldownTimer = 0.f;
