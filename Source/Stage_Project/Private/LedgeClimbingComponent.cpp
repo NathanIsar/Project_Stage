@@ -53,7 +53,6 @@ void ULedgeClimbingComponent::TickComponent(float DeltaTime, ELevelTick TickType
 			}
 		}
 	}
-	
 	if (bCameraBlending)
 	{
 		ACharacter* Char = GetOwnerCharacter();
@@ -72,6 +71,20 @@ void ULedgeClimbingComponent::TickComponent(float DeltaTime, ELevelTick TickType
 			bCameraBlending = false;
 		}
 	}
+	else if (CurrentState == ELedgeState::Hanging || CurrentState == ELedgeState::Climbing)
+	{
+		ACharacter* Char = GetOwnerCharacter();
+		AController* Controller = Char ? Char->GetController() : nullptr;
+		if (Controller)
+		{
+			const float WallYaw = (-CurrentLedgeData.LedgeNormal).Rotation().Yaw;
+			const FRotator CR   = Controller->GetControlRotation();
+			const float Delta   = FMath::FindDeltaAngleDegrees(WallYaw, CR.Yaw);
+			const float Clamped = FMath::Clamp(Delta, -MaxLookYaw, MaxLookYaw);
+			if (!FMath::IsNearlyEqual(Clamped, Delta, 0.01f))
+				Controller->SetControlRotation(FRotator(CR.Pitch, WallYaw + Clamped, CR.Roll));
+		}
+	}
 
 	switch (CurrentState)
 	{
@@ -79,6 +92,12 @@ void ULedgeClimbingComponent::TickComponent(float DeltaTime, ELevelTick TickType
 	case ELedgeState::Climbing: TickClimbing(DeltaTime); break;
 	case ELedgeState::Vaulting: TickVaulting(DeltaTime); break;
 	default: break;
+	}
+	
+	if (bDebugLedge && IsOnLedge() && GetWorld())
+	{
+		DrawDebugSphere(GetWorld(), GetLeftHandTarget(),  6.f, 8, FColor::Magenta, false, -1.f);
+		DrawDebugSphere(GetWorld(), GetRightHandTarget(), 6.f, 8, FColor::Orange,  false, -1.f);
 	}
 }
 
@@ -98,7 +117,8 @@ ULedgeMarkerComponent* ULedgeClimbingComponent::FindNearestLedge(const FVector& 
 		if (!M || M == Skip) continue;
 
 		const FVector P = M->GetClosestPoint(From);
-		
+
+		// Filtre vertical (au-dessus / en-dessous d'une référence)
 		if (VertDir > 0 && P.Z <= RefZ + VerticalSeparation) continue;
 		if (VertDir < 0 && P.Z >= RefZ - VerticalSeparation) continue;
 
@@ -131,6 +151,36 @@ void ULedgeClimbingComponent::AttachToLedge(ULedgeMarkerComponent* Marker, const
 
 	SetState(ELedgeState::Hanging);
 	PlayLedgeMontage(GrabMontage);
+}
+
+FVector ULedgeClimbingComponent::GetLeftHandTarget() const
+{
+	if (!CurrentLedge.IsValid()) return CurrentLedgePoint;
+	ULedgeMarkerComponent* M = CurrentLedge.Get();
+	const FVector P = CurrentLedgePoint - M->GetLedgeDirection() * (HandSpacing * 0.5f);
+	return M->GetClosestPoint(P); 
+}
+
+FVector ULedgeClimbingComponent::GetRightHandTarget() const
+{
+	if (!CurrentLedge.IsValid()) return CurrentLedgePoint;
+	ULedgeMarkerComponent* M = CurrentLedge.Get();
+	const FVector P = CurrentLedgePoint + M->GetLedgeDirection() * (HandSpacing * 0.5f);
+	return M->GetClosestPoint(P);
+}
+
+FRotator ULedgeClimbingComponent::GetLeftHandRotation() const
+{
+	const FVector N = CurrentLedgeData.LedgeNormal;
+	const FQuat Base = FRotationMatrix::MakeFromXZ(-N, FVector::UpVector).ToQuat();
+	return (Base * FQuat(HandAlignmentLeft)).Rotator();
+}
+
+FRotator ULedgeClimbingComponent::GetRightHandRotation() const
+{
+	const FVector N = CurrentLedgeData.LedgeNormal;
+	const FQuat Base = FRotationMatrix::MakeFromXZ(-N, FVector::UpVector).ToQuat();
+	return (Base * FQuat(HandAlignmentRight)).Rotator();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -169,7 +219,6 @@ void ULedgeClimbingComponent::TryClimbUp()
 	const float CapsuleRadius     = Char->GetCapsuleComponent()->GetScaledCapsuleRadius();
 
 	VaultStartLocation = Char->GetActorLocation();
-	// On se place sur le dessus du rebord : reculer (vers le mur) + monter.
 	VaultEndLocation   = CurrentLedgePoint
 		- CurrentLedgeData.LedgeNormal * (CapsuleRadius + 10.f)
 		+ FVector(0.f, 0.f, CapsuleHalfHeight + 5.f);
@@ -262,7 +311,7 @@ void ULedgeClimbingComponent::LedgeJump()
 	bAutoGrabbing = true;
 	AutoGrabTimer = AutoGrabWindow;
 
-	Char->LaunchCharacter(LaunchVel,true, true);
+	Char->LaunchCharacter(LaunchVel, /*bXYOverride=*/true, /*bZOverride=*/true);
 }
 
 void ULedgeClimbingComponent::DropToLowerLedge()
@@ -274,7 +323,7 @@ void ULedgeClimbingComponent::DropToLowerLedge()
 
 	FVector Pt;
 	ULedgeMarkerComponent* M = FindNearestLedge(
-		CurrentLedgePoint, MaxDropDistance, -1, CurrentLedgePoint.Z, CurrentLedge.Get(), Pt);
+		CurrentLedgePoint, MaxDropDistance, /*VertDir=*/-1, CurrentLedgePoint.Z, CurrentLedge.Get(), Pt);
 
 	if (M)
 	{
@@ -296,7 +345,8 @@ void ULedgeClimbingComponent::TickHanging(float DeltaTime)
 {
 	ACharacter* Char = GetOwnerCharacter();
 	if (!Char) return;
-	
+
+	// Le corps reste face au mur (la caméra, elle, reste libre).
 	const float WallYaw = (-CurrentLedgeData.LedgeNormal).Rotation().Yaw;
 	Char->SetActorRotation(FRotator(0.f, WallYaw, 0.f));
 
@@ -326,7 +376,7 @@ void ULedgeClimbingComponent::TickClimbing(float DeltaTime)
 		GEngine->AddOnScreenDebugMessage(120, 0.5f, FColor::White,
 			FString::Printf(TEXT("[Lateral] dir=%.0f"), LateralDirection));
 	
-	if (FVector::DistSquared(Clamped, CurrentLedgePoint) < 0.0625f)
+	if (FVector::DistSquared(Clamped, CurrentLedgePoint) < 0.0625f) // < 0.25 cm
 	{
 		LateralDirection = 0.f;
 		SetState(ELedgeState::Hanging);

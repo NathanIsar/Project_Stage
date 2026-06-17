@@ -92,6 +92,21 @@ public:
 	
 	UFUNCTION(BlueprintPure, Category = "Ledge Climbing")
 	float GetLateralDirection() const { return LateralDirection; }
+	
+	UFUNCTION(BlueprintPure, Category = "Ledge Climbing|IK")
+	FVector GetLeftHandTarget() const;
+	
+	UFUNCTION(BlueprintPure, Category = "Ledge Climbing|IK")
+	FVector GetRightHandTarget() const;
+	
+	UFUNCTION(BlueprintPure, Category = "Ledge Climbing|IK")
+	FRotator GetLeftHandRotation() const;
+	
+	UFUNCTION(BlueprintPure, Category = "Ledge Climbing|IK")
+	FRotator GetRightHandRotation() const;
+	
+	UFUNCTION(BlueprintPure, Category = "Ledge Climbing|IK")
+	bool IsOnLedge() const { return CurrentState == ELedgeState::Hanging || CurrentState == ELedgeState::Climbing; }
 
 	// ── Détection ───────────────────────────────────────────────────────────
 	
@@ -116,13 +131,25 @@ public:
 	float VaultDuration = 0.6f;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|Movement")
-	float HangDropOffset = 80.f;
+	float HangDropOffset = 75.f;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|Movement")
-	float HangForwardOffset = 5.f;
+	float HangForwardOffset = 25.f;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|Movement")
 	float CameraBlendDuration = 0.25f;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|IK")
+	float HandSpacing = 40.f;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|IK")
+	FRotator HandAlignmentRight = FRotator::ZeroRotator;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|IK")
+	FRotator HandAlignmentLeft = FRotator::ZeroRotator;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|Movement")
+	float MaxLookYaw = 90.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|Movement")
 	float LateralMoveSpeed = 150.f;
@@ -197,6 +224,7 @@ private:
 	
 	bool  bSavedUseControllerYaw = false;
 	bool  bSavedOrientToMovement = false;
+	
 	bool     bCameraBlending   = false;
 	float    CameraBlendTimer  = 0.f;
 	FRotator CameraBlendStart  = FRotator::ZeroRotator;
