@@ -44,7 +44,7 @@ void ULedgeClimbingComponent::TickComponent(float DeltaTime, ELevelTick TickType
 			{
 				FVector Pt;
 				ULedgeMarkerComponent* M = FindNearestLedge(
-					Char->GetActorLocation(), GrabRange, /*VertDir=*/+1, JumpFromLedgeZ, nullptr, Pt);
+					Char->GetActorLocation(), GrabRange, +1, JumpFromLedgeZ, nullptr, Pt);
 				if (M)
 				{
 					AttachToLedge(M, Pt);
@@ -117,8 +117,7 @@ ULedgeMarkerComponent* ULedgeClimbingComponent::FindNearestLedge(const FVector& 
 		if (!M || M == Skip) continue;
 
 		const FVector P = M->GetClosestPoint(From);
-
-		// Filtre vertical (au-dessus / en-dessous d'une référence)
+		
 		if (VertDir > 0 && P.Z <= RefZ + VerticalSeparation) continue;
 		if (VertDir < 0 && P.Z >= RefZ - VerticalSeparation) continue;
 
@@ -197,6 +196,24 @@ void ULedgeClimbingComponent::TryGrabLedge()
 
 	FVector Pt;
 	ULedgeMarkerComponent* M = FindNearestLedge(Char->GetActorLocation(), GrabRange, 0, 0.f, nullptr, Pt);
+	if (!M) return;
+
+	AttachToLedge(M, Pt);
+}
+
+void ULedgeClimbingComponent::StartClimbDown()
+{
+	if (bDetectionCooldown) return;
+	if (CurrentState != ELedgeState::None && CurrentState != ELedgeState::Detected) return;
+
+	ACharacter* Char = GetOwnerCharacter();
+	if (!Char) return;
+	
+	const float HalfH = Char->GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+	const FVector Feet = Char->GetActorLocation() - FVector(0.f, 0.f, HalfH);
+
+	FVector Pt;
+	ULedgeMarkerComponent* M = FindNearestLedge(Feet, GrabRange, /*VertDir=*/0, 0.f, nullptr, Pt);
 	if (!M) return;
 
 	AttachToLedge(M, Pt);
@@ -311,7 +328,7 @@ void ULedgeClimbingComponent::LedgeJump()
 	bAutoGrabbing = true;
 	AutoGrabTimer = AutoGrabWindow;
 
-	Char->LaunchCharacter(LaunchVel, /*bXYOverride=*/true, /*bZOverride=*/true);
+	Char->LaunchCharacter(LaunchVel, true, true);
 }
 
 void ULedgeClimbingComponent::DropToLowerLedge()
@@ -345,8 +362,7 @@ void ULedgeClimbingComponent::TickHanging(float DeltaTime)
 {
 	ACharacter* Char = GetOwnerCharacter();
 	if (!Char) return;
-
-	// Le corps reste face au mur (la caméra, elle, reste libre).
+	
 	const float WallYaw = (-CurrentLedgeData.LedgeNormal).Rotation().Yaw;
 	Char->SetActorRotation(FRotator(0.f, WallYaw, 0.f));
 

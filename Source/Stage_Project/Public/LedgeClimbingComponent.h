@@ -53,6 +53,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Ledge Climbing")
 	void TryGrabLedge();
+	
+	UFUNCTION(BlueprintCallable, Category = "Ledge Climbing")
+	void StartClimbDown();
 
 	UFUNCTION(BlueprintCallable, Category = "Ledge Climbing")
 	void TryClimbUp();
@@ -131,7 +134,7 @@ public:
 	float VaultDuration = 0.6f;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|Movement")
-	float HangDropOffset = 75.f;
+	float HangDropOffset = 110.f;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|Movement")
 	float HangForwardOffset = 25.f;
