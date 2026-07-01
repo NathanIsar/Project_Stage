@@ -1,7 +1,7 @@
 #include "SteleAxisRotator.h"
 #include "BasketPuzzleManager.h"
 
-void ASteleAxisRotator::HandleSteleRotated(ESymbolType NewFrontSymbol)
+void ASteleAxisRotator::OnBasketTrigger()
 {
 	if (PuzzleManager)
 	{

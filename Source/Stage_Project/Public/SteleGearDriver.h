@@ -1,4 +1,3 @@
-// SteleGearDriver.h
 #pragma once
 
 #include "CoreMinimal.h"
@@ -20,5 +19,5 @@ public:
 	FRotator RotationStep = FRotator(0.0f, 90.0f, 0.0f);
 
 protected:
-	virtual void HandleSteleRotated(ESymbolType NewFrontSymbol) override;
+	virtual void OnBasketTrigger() override;
 };

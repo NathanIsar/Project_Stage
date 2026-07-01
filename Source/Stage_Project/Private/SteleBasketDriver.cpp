@@ -1,14 +1,13 @@
-// SteleBasketDriver.cpp
 #include "SteleBasketDriver.h"
 
-void ASteleBasketDriver::BeginPlay()
+void ASteleBasketDriver::Interact_Implementation(AActor* Interactor)
 {
-	Super::BeginPlay();
+	Super::Interact_Implementation(Interactor);
 
-	OnSteleRotated.AddDynamic(this, &ASteleBasketDriver::HandleSteleRotated);
+	OnBasketTrigger();
 }
 
-void ASteleBasketDriver::HandleSteleRotated(ESymbolType NewFrontSymbol)
+void ASteleBasketDriver::OnBasketTrigger()
 {
-	// laisse vide
+	// implémenté par les sous-classes.
 }

@@ -1,7 +1,7 @@
 #include "SteleGearDriver.h"
 #include "BasketMount.h"
 
-void ASteleGearDriver::HandleSteleRotated(ESymbolType NewFrontSymbol)
+void ASteleGearDriver::OnBasketTrigger()
 {
 	if (DrivenBasket)
 	{
