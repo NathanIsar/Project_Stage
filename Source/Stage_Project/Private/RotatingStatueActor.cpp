@@ -1,6 +1,7 @@
 #include "RotatingStatueActor.h"
 #include "Components/StaticMeshComponent.h"
 #include "TimerManager.h"
+#include "Kismet/GameplayStatics.h"
 
 ARotatingStatueActor::ARotatingStatueActor()
 {
@@ -18,14 +19,19 @@ void ARotatingStatueActor::BeginPlay()
 void ARotatingStatueActor::Interact_Implementation(AActor* Interactor)
 {
 	if (!Execute_CanInteract(this) || bIsRotating) return;
-
-	// Gère le cooldown + broadcast OnInteracted (Blueprint) comme sur tes autres interactables.
+	
 	Super::Interact_Implementation(Interactor);
 
 	bIsRotating = true;
 	RotationElapsedTime = 0.f;
 	RotationStartYaw = MeshComponent->GetComponentRotation().Yaw;
 	RotationTargetYaw = RotationStartYaw + RotationStepDegrees;
+	
+	if (RotationSound)
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, RotationSound, GetActorLocation());
+	}
+
 
 	GetWorldTimerManager().SetTimer(
 		RotationTimerHandle,
@@ -46,7 +52,7 @@ void ARotatingStatueActor::TickRotation()
 	FRotator NewRotation = MeshComponent->GetComponentRotation();
 	NewRotation.Yaw = NewYaw;
 	MeshComponent->SetWorldRotation(NewRotation);
-
+	
 	if (Alpha >= 1.f)
 	{
 		GetWorldTimerManager().ClearTimer(RotationTimerHandle);

@@ -46,6 +46,9 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Statue|Feedback")
 	int32 CorrectStencilValue = 2;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Statue|Feedback")
+	class USoundBase* RotationSound;
 
 private:
 	FTimerHandle RotationTimerHandle;
