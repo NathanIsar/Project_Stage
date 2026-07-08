@@ -15,8 +15,7 @@ ABaseGrabbableActor::ABaseGrabbableActor()
 void ABaseGrabbableActor::BeginPlay()
 {
 	Super::BeginPlay();
-
-	// Auto-capture le matériau du mesh si rien n'est assigné dans l'éditeur
+	
 	if (!DefaultMaterial && MeshComponent && MeshComponent->GetMaterial(0))
 	{
 		DefaultMaterial = MeshComponent->GetMaterial(0);
