@@ -31,6 +31,12 @@ public:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Fracture|Config")
 	float MinBreakMass = 1.0f;
+	
+		UFUNCTION(BlueprintCallable, Category="Fracture")
+    	void ArmFeedback();
+    
+    	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Fracture|Config")
+    	float AutoArmDelay = 0.0f;
 
 protected:
 	virtual void BeginPlay() override;
@@ -40,4 +46,6 @@ protected:
 
 private:
 	bool bHasTriggered = false;
+		bool bArmed = false;
+    	FTimerHandle ArmTimerHandle;
 };

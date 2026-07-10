@@ -31,10 +31,25 @@ void AFractureFeedback::BeginPlay()
 	
 	GC->SetNotifyBreaks(true);
 	GC->OnChaosBreakEvent.AddDynamic(this, &AFractureFeedback::OnWallBreak);
+	
+	if (AutoArmDelay > 0.0f)
+    	{
+    		GetWorldTimerManager().SetTimer(
+    			ArmTimerHandle, this, &AFractureFeedback::ArmFeedback, AutoArmDelay, false);
+    	}
+}
+
+void AFractureFeedback::ArmFeedback()
+{
+	bArmed = true;
 }
 
 void AFractureFeedback::OnWallBreak(const FChaosBreakEvent& BreakEvent)
 {
+
+	if (!bArmed)
+		return; 
+		
 	if (bHasTriggered)
 		return;
 	
