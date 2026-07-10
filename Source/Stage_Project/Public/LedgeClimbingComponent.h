@@ -16,6 +16,10 @@ enum class ELedgeState : uint8
 	Vaulting	UMETA(DisplayName = "Vaulting")
 };
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnLedgeDetected, ULedgeMarkerComponent*, LedgeMarker);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnLedgeLost);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnLedgeStateChanged, ELedgeState, NewState);
+
 USTRUCT(BlueprintType)
 struct FLedgeData
 {
@@ -185,6 +189,55 @@ public:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|Animation")
 	TObjectPtr<UAnimMontage> DropMontage = nullptr;
+	
+	// HUD
+	
+	UPROPERTY(BlueprintAssignable, Category = "Ledge Climbing|Events")
+	FOnLedgeDetected OnLedgeDetected;
+
+	UPROPERTY(BlueprintAssignable, Category = "Ledge Climbing|Events")
+	FOnLedgeLost OnLedgeLost;
+
+	UPROPERTY(BlueprintAssignable, Category = "Ledge Climbing|Events")
+	FOnLedgeStateChanged OnLedgeStateChanged;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Ledge Climbing|Detection")
+	TObjectPtr<ULedgeMarkerComponent> FocusedLedge = nullptr;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|Detection")
+	float LedgeLookAngle = 60.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ledge Climbing|Detection")
+	float DetectionScanInterval = 0.1f;
+	
+	UFUNCTION(BlueprintPure, Category = "Ledge Climbing|HUD")
+	bool ShouldShowGrabPrompt() const { return FocusedLedge != nullptr; }
+	
+	UFUNCTION(BlueprintPure, Category = "Ledge Climbing|HUD")
+	bool ShouldShowJumpPrompt() const
+	{
+		return (CurrentState == ELedgeState::Hanging || CurrentState == ELedgeState::Climbing)
+			&& !CurrentLedgeData.bCanMantle;
+	}
+	
+	UFUNCTION(BlueprintPure, Category = "Ledge Climbing|HUD")
+	bool ShouldShowMantlePrompt() const
+	{
+		return (CurrentState == ELedgeState::Hanging || CurrentState == ELedgeState::Climbing)
+			&& CurrentLedgeData.bCanMantle;
+	}
+	
+	UFUNCTION(BlueprintPure, Category = "Ledge Climbing|HUD")
+	bool ShouldShowDropPrompt() const
+	{
+		return CurrentState == ELedgeState::Hanging || CurrentState == ELedgeState::Climbing;
+	}
+
+	UFUNCTION(BlueprintPure, Category = "Ledge Climbing|HUD")
+	bool ShouldShowLedgeHUD() const
+	{
+		return ShouldShowGrabPrompt() || ShouldShowMantlePrompt() || ShouldShowDropPrompt();
+	}
 
 private:
 
@@ -236,4 +289,10 @@ private:
 	bool  bDetectionCooldown     = false;
 	float DetectionCooldownTimer = 0.f;
 	static constexpr float DetectionCooldownDuration = 0.4f;
+	
+	
+	void UpdateLedgeDetection(float DeltaTime);
+	bool IsLedgeInView(const FVector& Point) const;
+
+	float DetectionScanTimer = 0.f;
 };

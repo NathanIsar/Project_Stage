@@ -23,6 +23,8 @@ void ULedgeClimbingComponent::TickComponent(float DeltaTime, ELevelTick TickType
                                              FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+	
+	UpdateLedgeDetection(DeltaTime);
 
 	if (bDetectionCooldown)
 	{
@@ -150,6 +152,8 @@ void ULedgeClimbingComponent::AttachToLedge(ULedgeMarkerComponent* Marker, const
 
 	SetState(ELedgeState::Hanging);
 	PlayLedgeMontage(GrabMontage);
+	
+	OnLedgeStateChanged.Broadcast(CurrentState);
 }
 
 FVector ULedgeClimbingComponent::GetLeftHandTarget() const
@@ -451,6 +455,8 @@ void ULedgeClimbingComponent::SetState(ELedgeState NewState)
 		if (OldState != ELedgeState::Climbing)
 			ApplyHangingPhysics();
 	}
+
+	OnLedgeStateChanged.Broadcast(NewState);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -525,4 +531,52 @@ FVector ULedgeClimbingComponent::ComputeHangPosition(const FLedgeData& LedgeData
 ACharacter* ULedgeClimbingComponent::GetOwnerCharacter() const
 {
 	return Cast<ACharacter>(GetOwner());
+}
+
+void ULedgeClimbingComponent::UpdateLedgeDetection(float DeltaTime)
+{
+	DetectionScanTimer -= DeltaTime;
+	if (DetectionScanTimer > 0.f) return;
+	DetectionScanTimer = DetectionScanInterval;
+
+	ULedgeMarkerComponent* Found = nullptr;
+
+	if (CurrentState == ELedgeState::None && !bDetectionCooldown && !bAutoGrabbing)
+	{
+		if (ACharacter* Char = GetOwnerCharacter())
+		{
+			FVector Pt;
+			ULedgeMarkerComponent* M =
+				FindNearestLedge(Char->GetActorLocation(), GrabRange, /*VertDir=*/0, 0.f, nullptr, Pt);
+
+			if (M && IsLedgeInView(Pt))
+				Found = M;
+		}
+	}
+
+	if (Found == FocusedLedge) return;
+
+	FocusedLedge = Found;
+
+	if (Found)
+		OnLedgeDetected.Broadcast(Found);
+	else
+		OnLedgeLost.Broadcast();
+}
+
+bool ULedgeClimbingComponent::IsLedgeInView(const FVector& Point) const
+{
+	const ACharacter* Char = GetOwnerCharacter();
+	if (!Char) return false;
+
+	FVector  EyeLoc;
+	FRotator EyeRot;
+	Char->GetActorEyesViewPoint(EyeLoc, EyeRot);
+
+	const FVector Forward = EyeRot.Vector().GetSafeNormal2D();
+	const FVector ToLedge = (Point - EyeLoc).GetSafeNormal2D();
+	if (ToLedge.IsNearlyZero()) return true;
+
+	const float CosLimit = FMath::Cos(FMath::DegreesToRadians(LedgeLookAngle));
+	return FVector::DotProduct(Forward, ToLedge) >= CosLimit;
 }
