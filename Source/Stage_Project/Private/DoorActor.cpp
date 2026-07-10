@@ -179,7 +179,11 @@ void ADoorActor::OnPlayerEnterDoor(UPrimitiveComponent* OverlappedComp, AActor* 
     UPrimitiveComponent* OtherComp, int32 OtherBodyIndex,
     bool bFromSweep, const FHitResult& SweepResult)
 {
-    if (!OtherActor || !OtherActor->IsA(APawn::StaticClass()))
+    APawn* Pawn = Cast<APawn>(OtherActor);
+    if (!Pawn)
+        return;
+    
+    if (OtherComp != Pawn->GetRootComponent())
         return;
 
     if (DoorState != EDoorState::Open)
