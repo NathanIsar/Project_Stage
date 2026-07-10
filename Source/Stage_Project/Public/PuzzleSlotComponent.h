@@ -48,6 +48,12 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Puzzle|Sound")
 	USoundBase* EjectSound = nullptr;
 	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Puzzle")
+	TObjectPtr<UMaterialInterface> SlotMaterial;
+	protected:
+	
+	virtual void OnRegister() override;
+	
 private:
 	UPROPERTY()
 	UAudioComponent* SlotAudioComponent = nullptr;

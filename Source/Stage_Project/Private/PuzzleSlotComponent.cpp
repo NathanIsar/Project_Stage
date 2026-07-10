@@ -7,10 +7,27 @@ UPuzzleSlotComponent::UPuzzleSlotComponent()
 {
 	PrimaryComponentTick.bCanEverTick = false;
 	
+	static ConstructorHelpers::FObjectFinder<UStaticMesh> CubeMesh(
+	TEXT("/Engine/BasicShapes/Cube.Cube"));
+	if (CubeMesh.Succeeded())
+	{
+		SetStaticMesh(CubeMesh.Object);
+	}
+	
 	SetCollisionProfileName(TEXT("OverlapAll"));
 	SetGenerateOverlapEvents(true);
 	
 	SetHiddenInGame(false);
+}
+
+void UPuzzleSlotComponent::OnRegister()
+{
+	Super::OnRegister();
+
+	if (SlotMaterial)
+	{
+		SetMaterial(0, SlotMaterial);
+	}
 }
  
 bool UPuzzleSlotComponent::TryPlaceDigit(ANumberGrab* Digit)
